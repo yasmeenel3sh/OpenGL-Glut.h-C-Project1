@@ -15,38 +15,52 @@ int _tmain(int argc, _TCHAR* argv[])
 #include <GL/GL.h>
 #include <math.h>
 #include <iostream>
-#include <queue>
-#define DEG2RAD 3.14159/180.0
+#include <vector>
 
 //-----------------
 //	Methods Signatures
 void Display(void);
 void DrawPlayer(void);
 void DrawEnemy(void);
-void Fire(void);
+void Fire(double,double,double);
 void Anim(void);
-void EnemyFire(void);
+void EnemyFire(double,double);
 void print(int, int, char *);
 int* bezier(float , int* , int* , int* , int*);
 void drawTriangle(void);
 void drawCircle(int, int, float);
+void playerFirePush(double,double,double,bool);
+bool detectEnemyHit(double, double , double , double);
+void updateEnemyHealth(void);
+bool detectPlayerHit(double, double , double, double );
+void DrawExtraLifePowerUP(double , double );
+void DrawDoubleDamagePowerUp(double , double );
 //-----------------
 
 //	Global Variables
-struct bullet { double x; double y; };
-
+struct bullet { double x; double y; double rotationAngle; bool collided; };
+struct powerup { double x; double y; bool collided; };
+vector<bullet> playerFire{};
+vector<bullet> enemyFire ;
+vector<bullet> defenderFire ;
+vector<powerup> extraLives;
+vector<powerup> doubleDamages;
+int sizeofplayerFire;
 double colAnim = 0;     // for fading the background color from white to black
 double enemyHealth = 20;
-double playerx = 1000;
-bool fire = false;
+double pastEnemyHealth = 20;
+double playerX= 1000;
+double playerY = 200;
+int playerScore = 0;
+int playerLives = 0;
+bool doubleDamage = false;
+bool fire = true;
 bool enemyfire = false;
-double fireX=20;
-double fireY = 150;
-double enemyX = 1000;
-double enemyY = 700;
-double enemyFireX = 1000;//to be changed
-double enemyFireY = 700;
-double currentEnemyFireY = 700;
+
+double fireY = 220;
+double enemyX = 0;
+double enemyY = 0;
+
 double playerRotationAngle = 0;
 bool playerAlive = true;
 int p0[2];
@@ -103,18 +117,83 @@ void Display(void)
 	//glColor3f(1, 1, 1);
 	//glVertex3f(p3[0], p3[1], 0);
 	//glEnd();
-	print(playerRotationAngle, 500, "here");
+	int i = playerFire.size();
+	std::string text = "PlayerBullets ";
+	text += std::to_string(i);
+	char * S = new char[text.length() + 1];
+	std::strcpy(S, text.c_str());
+	print(1500, 800, S);
+	 i = enemyFire.size();
+	 text = "EnemyBullets ";
+	text += std::to_string(i);
+	 S = new char[text.length() + 1];
+	std::strcpy(S, text.c_str());
+	print(1500, 700, S);
+	i = enemyHealth;
+	text = "EnemyHealth ";
+	text += std::to_string(i);
+	S = new char[text.length() + 1];
+	std::strcpy(S, text.c_str());
+	print(1500, 600, S);
 	//Drawing Player
 	glPushMatrix();
-	glTranslated(playerx, 200, 0);
-	//glRotated(playerRotationAngle, 0, 0, 1);
+	glTranslated(playerX, playerY, 0);
+	glRotated(playerRotationAngle, 0, 0, 1);
 	DrawPlayer();
 	glPopMatrix();
 
 	DrawEnemy();
-	Fire();
-	EnemyFire();
+	for (int i = 0; i < playerFire.size(); i++){
+		Fire(playerFire[i].x,playerFire[i].y,playerFire[i].rotationAngle);
+		bool collided = detectEnemyHit(playerFire[i].x, playerFire[i].y, enemyX, enemyY);
+		if (collided){
+		
+			updateEnemyHealth();
+			playerFire[i].collided = true;
+		}
+	}
+	for (int i = 0; i < enemyFire.size(); i++){
+		EnemyFire(enemyFire[i].x,enemyFire[i].y);
+		bool collided = detectPlayerHit(enemyFire[i].x, enemyFire[i].y, playerX, playerY);
+		if (collided){
+            		
+			enemyFire[i].collided = true;
+		}
+	}
+	for (int i = 0; i < extraLives.size(); i++){
+		DrawExtraLifePowerUP(extraLives[i].x, extraLives[i].y);
+	}
+	for (int i = 0; i < doubleDamages.size(); i++){
+		DrawDoubleDamagePowerUp(doubleDamages[i].x,doubleDamages[i].y);
+	}
 	glFlush(); //must be called to draw
+}
+void updateEnemyHealth(){
+	if (enemyHealth > 1 && doubleDamage ==false)
+		enemyHealth--;
+	else if (enemyHealth > 2 && doubleDamage == true){
+		enemyHealth -= 2;
+	}else{
+		enemyHealth = pastEnemyHealth * 2;
+		pastEnemyHealth = enemyHealth;
+	     }
+}
+bool detectEnemyHit(double playerBulletX,double playerBulletY,double enemyx,double enemyy){
+	if (playerBulletX >= enemyx-50 && playerBulletX < enemyx + 100 && playerBulletY<enemyy && playerBulletY >enemyy - 140){
+		return true;
+	}
+	return false;
+
+}
+bool detectPlayerHit(double enemyBulletX, double enemyBulletY, double playerx, double playery){
+	if (enemyBulletX >= playerx - 70 && enemyBulletX < playerx + 60 && enemyBulletY<playery && enemyBulletY > playery - 110){
+		return true;
+	}
+	return false;
+}
+void playerFirePush(double x, double y, double rotation, bool collided){
+	bullet bullet = { x, y, rotation, collided };
+	playerFire.push_back(bullet);
 }
 void print(int x, int y, char *string)
 {
@@ -131,6 +210,34 @@ void print(int x, int y, char *string)
 	{
 		glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, string[i]);
 	}
+}
+void DrawExtraLifePowerUP(double x, double y){
+	glPushMatrix();
+	glTranslated(x, y, 0);
+	glColor3f(0, 1, 0);
+	glBegin(GL_QUADS);
+	glVertex3d(0, 0, 0);
+	glVertex3d(40, 0, 0);
+	glVertex3d(40, -40, 0);
+	glVertex3d(0, -40, 0);
+
+	glEnd();
+	glPopMatrix();
+}
+
+void DrawDoubleDamagePowerUp(double x,double y){
+	glPushMatrix();
+	glTranslated(x, y, 0);
+	glColor3f(0, 0, 1);
+
+	glBegin(GL_QUADS);
+	glVertex3d(0, 0, 0);
+	glVertex3d(40, 0, 0);
+	glVertex3d(40, -40, 0);
+	glVertex3d(0, -40, 0);
+
+	glEnd();
+	glPopMatrix();
 }
 void DrawPlayer(){
 	if (playerAlive){
@@ -202,12 +309,12 @@ void DrawPlayer(){
 //player movement by mouse
 void PlayerMovement(int x, int y){
 	if (x > 50 && x<1990){
-		playerx = x;
+		playerX = x;
 	}
-	if (playerx > 1200)
-		playerRotationAngle = 30;
-	else if (playerx < 800)
-		playerRotationAngle = -30;
+	if (playerX > 1200)
+		playerRotationAngle = -5;
+	else if (playerX < 800)
+		playerRotationAngle = 5;
 	else
 		playerRotationAngle = 0;
 	print(700, 500, "here" );
@@ -216,10 +323,11 @@ void PlayerMovement(int x, int y){
 
 }
 void PlayerShooting(int button, int state, int x, int y){
-	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN && fire==false)//if the left button has been clicked then translate the square to the mouse position
+	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN &&fire==true )//if the left button has been clicked then translate the square to the mouse position
 	{
-		fireX = x;
-		fire = true;
+		
+		playerFirePush(x,fireY,playerRotationAngle,false);
+		fire = false;
 		
 	}
 
@@ -229,11 +337,20 @@ void PlayerShooting(int button, int state, int x, int y){
 	//}
 }
 
-void Fire(){
-	if (fire == true){
+void Fire(double firex,double firey,double rotationAngle ){
+	/*if (fire == true){*/
 		glPushMatrix();
 		glColor3f(1, 1, 1);
-		glTranslated(fireX, fireY, 0);
+		if (rotationAngle == 0){
+			glTranslated(firex + 30, firey, 0);
+		}
+		else if (rotationAngle < 0){
+			glTranslated(firex + 35, firey, 0);
+		}
+		else if (rotationAngle > 0){
+			glTranslated(firex + 25, firey, 0);
+		}
+		glRotated(rotationAngle, 0, 0, 1);
 		glBegin(GL_QUADS);
 		glVertex3d(0, 0, 0);
 		glVertex3d(0, -20, 0);
@@ -265,7 +382,7 @@ void Fire(){
 		glVertex3d(10, -30, 0);
 		glEnd();*/
 		glPopMatrix();
-	}
+	//}
 }
 void drawCircle(int x, int y, float r) {
 
@@ -323,43 +440,52 @@ void DrawEnemy(){
 	
 
 }
-void drawTriangle(){
-	glBegin(GL_TRIANGLES);
-	glColor3f(1, 0, 0); // red
-	glVertex2f(0, -100);
-	glColor3f(0, 1, 0); // green
-	glVertex2f(100, 0);
-	glColor3f(0, 0, 1); // blue
-	glVertex2f(0, 100);
-	glEnd();
-}
-void EnemyFire(){
-	if (enemyfire == true){
+
+void EnemyFire(double enemyFirex,double enemyFirey){
+	
 		glPushMatrix();
 		glColor3f(1, 1, 1);
-		glTranslated(enemyFireX, enemyFireY, 0);
+		glTranslated(enemyFirex+45, enemyFirey, 0);
 		glBegin(GL_QUADS);
 		glVertex3d(0, 0, 0);
 		glVertex3d(20, 0, 0);
-		glVertex3d(30, -20, 0);
-		glVertex3d(-10, -20, 0);
+		glVertex3d(35, -20, 0);
+		glVertex3d(-15, -20, 0);
 		glEnd();
 		glBegin(GL_QUADS);
-		glVertex3d(-10, -20, 0);
-		glVertex3d(30, -20, 0);
+		glVertex3d(-15, -20, 0);
+		glVertex3d(35, -20, 0);
 		glVertex3d(20, -40, 0);
 		glVertex3d(0, -40, 0);
 		glEnd();
 		glColor3f(1, 0.8, 0);
 		drawCircle(10, -20, 10);
 		glPopMatrix();
-	}
+	
+	
 }
 void EnemyShootTimer(int val){
-	enemyfire = true;
-	glutTimerFunc(1000, EnemyShootTimer, 0);
+	bullet bullet = { enemyX, enemyY, 0, false };
+	enemyFire.push_back(bullet);
+	
+	glutTimerFunc(1500, EnemyShootTimer, 0);
 }
-
+void PlayerShootTimer(int val){
+	fire = true;
+	glutTimerFunc(500, PlayerShootTimer, 0);
+}
+void DoubleDamagesTimer(int val){
+	double x = 100 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1900));
+	powerup powerup = { x, 1100,false };
+	doubleDamages.push_back(powerup);
+	glutTimerFunc(5000, DoubleDamagesTimer, 0);
+}
+void  ExtraLivesTimer(int val){
+	double x = 100 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1900));
+	powerup powerup = { x, 1100,false };
+	extraLives.push_back(powerup);
+	glutTimerFunc(10000, ExtraLivesTimer, 0);
+}
 int* bezier(float t, int* p0, int* p1, int* p2, int* p3)
 {
 	int res[2];
@@ -369,6 +495,7 @@ int* bezier(float t, int* p0, int* p1, int* p2, int* p3)
 }
 void Anim()
 {
+	
 	bezT += 0.00001;
 	if (bezT <= 1){
 		int* p = bezier(bezT, p0, p1, p2, p3);
@@ -378,23 +505,50 @@ void Anim()
 	else {
 		bezT = 0 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1));
 	}
-	if (fireY <= 900 && fire ==true){
-		fireY += 0.5;
+	for (int i = 0; i < playerFire.size();i++){
+		if (playerFire[i].y <= 900 && playerFire[i].collided ==false ){
+			playerFire[i].y += 0.5;
+		}
+		else{
+			playerFire.erase(playerFire.begin() + i);
+			i--;
+		}
+		//else{
+
+		//	fire = false;
+		//	fireY = 250;
+		//}
 	}
-	else{
-		
-		fire = false;
-		fireY = 150;
+	for (int i = 0; i < enemyFire.size(); i++){
+		if (enemyFire[i].y > 0 && enemyFire[i].collided == false){
+			enemyFire[i].y -= 1;
+		}
+		else {
+			enemyFire.erase(enemyFire.begin() + i);
+			i--;
+		}
 	}
-	if (enemyFireY > 0 && enemyfire == true){
-		enemyFireY -= 1;
+	for (int i = 0; i < doubleDamages.size(); i++){
+		if (doubleDamages[i].y > 0 && doubleDamages[i].collided == false){
+			doubleDamages[i].y -= 1;
+		}
+		else{
+			doubleDamages.erase(doubleDamages.begin() + i);
+			i--;
+		}
 	}
-	else {
-		enemyfire = false;
-		enemyFireY = enemyY;
+	for (int i = 0; i < extraLives.size(); i++){
+		if(extraLives[i].y > 0 && extraLives[i].collided == false){
+			extraLives[i].y -= 1;
+		}
+		else{
+			extraLives.erase(extraLives.begin() + i);
+			i--;
+		}
 	}
 	glutPostRedisplay();
 }
+
 void main(int argc, char** argr)
 {
 	p0[0] = 25;
@@ -421,7 +575,11 @@ void main(int argc, char** argr)
 	glutMouseFunc(PlayerShooting);
 
 	glutTimerFunc(0, EnemyShootTimer, 0);
+	glutTimerFunc(0, PlayerShootTimer, 0);
+	glutTimerFunc(0, DoubleDamagesTimer, 0);
+	glutTimerFunc(0, ExtraLivesTimer, 0);
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	gluOrtho2D(0.0, 2000.0, 0.0, 1000.0);
-	glutMainLoop();
+	glutMainLoop();//nth gets excuted after this
+	
 }
