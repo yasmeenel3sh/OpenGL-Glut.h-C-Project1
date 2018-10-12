@@ -2,7 +2,7 @@
 //
 
 #include "stdafx.h"
-
+#include "TextureBuilder.h"
 #include <string>
 using namespace std;
 int _tmain(int argc, _TCHAR* argv[])
@@ -14,10 +14,12 @@ int _tmain(int argc, _TCHAR* argv[])
 #include <glut.h>
 #include <GL/GL.h>
 #include <math.h>
+
 #include <iostream>
 #include <vector>
 #include <ctime>
 //-----------------
+#define PI 3.14159265
 //	Methods Signatures
 void Display(void);
 void DrawPlayer(void);
@@ -26,7 +28,7 @@ void Fire(double,double,double);
 void Anim(void);
 void EnemyFire(double,double);
 void print(int, int, char *);
-int* bezier(float , int* , int* , int* , int*);
+float* bezier(float , float* , float* , float* , float*);
 void drawTriangle(void);
 void drawCircle(int, int, float);
 void playerFirePush(double,double,double,bool);
@@ -36,6 +38,8 @@ bool detectPlayerHit(double, double , double, double );
 void DrawExtraLifePowerUP(double , double );
 void DrawDoubleDamagePowerUp(double , double );
 bool detectDoubleDamagePowerUpCollision(double, double, double, double);
+void DrawDefender(void);
+bool detectDefenderHit(double , double , double , double );
 //-----------------
 
 //	Global Variables
@@ -60,19 +64,27 @@ int playerLives = 5;
 bool doubleDamage = false;
 bool fire = true;
 bool enemyfire = false;
-
+bool showDefender = false;
+double defenderX = 0;
 double fireY = 220;
 double enemyX = 0;
 double enemyY = 0;
-
+float previousEnemyX = 0;
+float previousEnemyY = 0;
+double EnemyRotationAngle = 0;
 double playerRotationAngle = 0;
 bool playerAlive = true;
-int p0[2];
-int p1[2];
-int p2[2];
-int p3[2];
+float p0[2];
+float p1[2];
+float p2[2];
+float p3[2];
 float bezT = 0;
-int tar = 4;
+int defenderCount = 0;
+int defenderShowWait = 1;
+double defenderY = 0;
+int rep = 1;
+GLuint spacetexID;
+double BackGroundX = 0;
 
 //-----------------
 
@@ -80,12 +92,41 @@ int tar = 4;
 void Display(void)
 {
 	//glClearColor(colAnim, colAnim, colAnim, 0.0f); // update the background color
-	glClearColor(0.5f, colAnim, colAnim, 0.0f);
+	//glClearColor(0.5f, colAnim, colAnim, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
+	//BackGround1
+	glEnable(GL_TEXTURE_2D);
+	glColor3f(1, 1, 1);
+	glPushMatrix();
+	glTranslated(BackGroundX, 0, 0);
+	glBindTexture(GL_TEXTURE_2D, spacetexID);
+	glBegin(GL_QUADS);
+	glTexCoord2f(0.0f, 0.0f);			glVertex3f(0, 0, 0);
+	glTexCoord2f(rep, 0.0f);			glVertex3f(2000, 0, 0);
+	glTexCoord2f(rep, rep);				 glVertex3f(2000, 1000, 0);
+	glTexCoord2f(0.0f, rep);			 glVertex3f(0, 1000, 0);
+	glEnd();
+	glPopMatrix();
+	glDisable(GL_TEXTURE_2D);
+	//BackGound2
+	glEnable(GL_TEXTURE_2D);
+	glColor3f(1, 1, 1);
+	glPushMatrix();
+	glTranslated(BackGroundX, 0, 0);
+	glBindTexture(GL_TEXTURE_2D, spacetexID);
+
+	glBegin(GL_QUADS);
+	glTexCoord2f(0.0f, 0.0f);			glVertex3f(-2000, 0, 0);
+	glTexCoord2f(rep, 0.0f);			glVertex3f(0, 0, 0);
+	glTexCoord2f(rep, rep);				 glVertex3f(0, 1000, 0);
+	glTexCoord2f(0.0f, rep);			 glVertex3f(-2000, 1000, 0);
+	glEnd();
+	glPopMatrix();
+	glDisable(GL_TEXTURE_2D);
 	//Bezier
-	//print(750, 500, "Bezier Control Points");
-	//glColor3f(1, 0, 0);
-	/*char* p0s[20];
+	/*print(750, 500, "Bezier Control Points");
+	glColor3f(1, 0, 0);
+	char* p0s[20];
 	sprintf((char *)p0s, "P0={%d,%d}", p0[0], p0[1]);
 	print(785, 450, (char *)p0s);
 	glColor3f(0, 1, 0);
@@ -99,29 +140,29 @@ void Display(void)
 	glColor3f(1, 1, 1);
 	char* p3s[20];
 	sprintf((char *)p3s, "P3={%d,%d}", p3[0], p3[1]);
-	print(785, 300, (char *)p3s);*/
+	print(785, 300, (char *)p3s);
 
-	//glPointSize(1);
-	//glColor3f(1, 1, 0);
-	//glBegin(GL_POINTS);
-	////for (float t = 0; t<1; t += 0.001)
-	////{
-	////	int* p = bezier(t, p0, p1, p2, p3);
-	////	glVertex3f(p[0], p[1], 0);
-	////}
-	//glEnd();
-	//glPointSize(9);
-	//glBegin(GL_POINTS);
-	//glColor3f(1, 0, 0);
-	//glVertex3f(p0[0], p0[1], 0);
-	//glColor3f(0, 1, 0);
-	//glVertex3f(p1[0], p1[1], 0);
-	//glColor3f(0, 0, 1);
-	//glVertex3f(p2[0], p2[1], 0);
-	//glColor3f(1, 1, 1);
-	//glVertex3f(p3[0], p3[1], 0);
-	//glEnd();
-	int i = playerFire.size();
+	glPointSize(1);
+	glColor3f(1, 1, 0);
+	glBegin(GL_POINTS);
+	for (float t = 0; t<1; t += 0.001)
+	{
+		float* p = bezier(t, p0, p1, p2, p3);
+		glVertex3f(p[0], p[1], 0);
+	}
+	glEnd();
+	glPointSize(9);
+	glBegin(GL_POINTS);
+	glColor3f(1, 0, 0);
+	glVertex3f(p0[0], p0[1], 0);
+	glColor3f(0, 1, 0);
+	glVertex3f(p1[0], p1[1], 0);
+	glColor3f(0, 0, 1);
+	glVertex3f(p2[0], p2[1], 0);
+	glColor3f(1, 1, 1);
+	glVertex3f(p3[0], p3[1], 0);
+	glEnd();*/
+	/*int i = playerFire.size();
 	std::string text = "PlayerBullets ";
 	text += std::to_string(i);
 	char * S = new char[text.length() + 1];
@@ -144,7 +185,7 @@ void Display(void)
 	text += std::to_string(i);
 	S = new char[text.length() + 1];
 	std::strcpy(S, text.c_str());
-	print(1500, 850, S);
+	print(1500, 850, S);*/
 	//Drawing Player
 	glPushMatrix();
 	glTranslated(playerX, playerY, 0);
@@ -153,12 +194,22 @@ void Display(void)
 	glPopMatrix();
 
 	DrawEnemy();
+	if (defenderCount ==defenderShowWait){
+		DrawDefender();
+	}
 	for (int i = 0; i < playerFire.size(); i++){
 		Fire(playerFire[i].x,playerFire[i].y,playerFire[i].rotationAngle);
-		bool collided = detectEnemyHit(playerFire[i].x, playerFire[i].y, enemyX, enemyY);
+		bool collided;
+		if (defenderCount ==defenderShowWait){
+			collided = detectDefenderHit(playerFire[i].x, playerFire[i].y, defenderX, defenderY);
+		}
+		else{
+		  collided = detectEnemyHit(playerFire[i].x, playerFire[i].y, enemyX, enemyY);
+		}
 		if (collided){
-		
-			updateEnemyHealth();
+			if (defenderCount < defenderShowWait){
+				updateEnemyHealth();
+			}
 			playerFire[i].collided = true;
 		}
 	}
@@ -175,7 +226,7 @@ void Display(void)
 		bool collided = detectExtraLivesPowerUpCollision(extraLives[i].x, extraLives[i].y, playerX, playerY);
 		if (collided){
 			playerLives++;
-			extraLives[i].collided = true;
+			extraLives[i].collided=true;
 		}
 	}
 	for (int i = 0; i < doubleDamages.size(); i++){
@@ -195,7 +246,7 @@ void Display(void)
 	glFlush(); //must be called to draw
 }
 void updateEnemyHealth(){
-	if (enemyHealth > 1 && doubleDamage ==false)
+	if (enemyHealth > 1 && doubleDamage ==false )
 		enemyHealth--;
 	else if (enemyHealth > 2 && doubleDamage == true){
 		enemyHealth -= 2;
@@ -206,14 +257,21 @@ void updateEnemyHealth(){
 }
 
 bool detectEnemyHit(double playerBulletX,double playerBulletY,double enemyx,double enemyy){
-	if (playerBulletX >= enemyx-50 && playerBulletX < enemyx + 100 && playerBulletY<enemyy && playerBulletY >enemyy - 140){
+	if (playerBulletX >= enemyx-50 && playerBulletX < enemyx + 80 && playerBulletY<enemyy && playerBulletY >enemyy - 130){
+		return true;
+	}
+	return false;
+
+}
+bool detectDefenderHit(double playerBulletX, double playerBulletY, double defenderx, double defendery){
+	if (playerBulletX >= defenderX && playerBulletX < defenderX+200 && playerBulletY<defendery && playerBulletY> defenderY-50 ){
 		return true;
 	}
 	return false;
 
 }
 bool detectPlayerHit(double enemyBulletX, double enemyBulletY, double playerx, double playery){
-	if (enemyBulletX >= playerx - 70 && enemyBulletX < playerx + 60 && enemyBulletY<playery && enemyBulletY > playery - 110){
+	if (enemyBulletX >= playerx - 70 && enemyBulletX < playerx + 60 && enemyBulletY-100<playery && enemyBulletY > playery -110){
 		return true;
 	}
 	return false;
@@ -275,6 +333,22 @@ void DrawDoubleDamagePowerUp(double x,double y){
 	glVertex3d(40, 0, 0);
 	glVertex3d(40, -40, 0);
 	glVertex3d(0, -40, 0);
+
+	glEnd();
+	glPopMatrix();
+}
+void DrawDefender(){
+	glPushMatrix();
+
+	glTranslated(defenderX, defenderY, 0);
+	glRotated(EnemyRotationAngle, 0, 0, 1);
+	glColor3f(0, 0, 1);
+
+	glBegin(GL_QUADS);
+	glVertex3d(0, 0, 0);
+	glVertex3d(200, 0, 0);
+	glVertex3d(200, -60, 0);
+	glVertex3d(0, -60, 0);
 
 	glEnd();
 	glPopMatrix();
@@ -440,7 +514,7 @@ void DrawEnemy(){
 	glPushMatrix();
 	glColor3f(1, 1, 1);
 	glTranslated(enemyX, enemyY, 0);
-	//glRotated(-45, 0, 0, 1);
+	glRotated(EnemyRotationAngle, 0, 0, 1);
 	glColor3f(0, 0.9, 1);
 	glBegin(GL_QUADS);
 	glVertex3d(0, 0, 0);
@@ -489,7 +563,7 @@ void EnemyFire(double enemyFirex,double enemyFirey){
 	
 		glPushMatrix();
 		glColor3f(1, 1, 1);
-		glTranslated(enemyFirex+45, enemyFirey, 0);
+		glTranslated(enemyFirex+45, enemyFirey-100, 0);
 		glBegin(GL_QUADS);
 		glVertex3d(0, 0, 0);
 		glVertex3d(20, 0, 0);
@@ -512,11 +586,11 @@ void EnemyShootTimer(int val){
 	bullet bullet = { enemyX, enemyY, 0, false };
 	enemyFire.push_back(bullet);
 	
-	glutTimerFunc(1500, EnemyShootTimer, 0);
+	glutTimerFunc(750, EnemyShootTimer, 0);
 }
 void PlayerShootTimer(int val){
 	fire = true;
-	glutTimerFunc(500, PlayerShootTimer, 0);
+	glutTimerFunc(250, PlayerShootTimer, 0);
 }
 void DoubleDamagesTimer(int val){
 	double x = 100 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1900));
@@ -539,28 +613,53 @@ void  ExtraLivesTimer(int val){
 	extraLives.push_back(powerup);
 	glutTimerFunc(10000, ExtraLivesTimer, 0);
 }
-int* bezier(float t, int* p0, int* p1, int* p2, int* p3)
+float* bezier(float t, float* p0, float* p1, float* p2, float* p3)
 {
-	int res[2];
+	float res[2];
 	res[0] = pow((1 - t), 3)*p0[0] + 3 * t*pow((1 - t), 2)*p1[0] + 3 * pow(t, 2)*(1 - t)*p2[0] + pow(t, 3)*p3[0];
 	res[1] = pow((1 - t), 3)*p0[1] + 3 * t*pow((1 - t), 2)*p1[1] + 3 * pow(t, 2)*(1 - t)*p2[1] + pow(t, 3)*p3[1];
 	return res;
 }
 void Anim()
 {
-	
-	bezT += 0.00001;
+	if (BackGroundX < 2000){
+		BackGroundX += 0.05;
+	}
+	else{
+		BackGroundX = 0;
+	}
+	bezT += 0.00025;
 	if (bezT <= 1){
-		int* p = bezier(bezT, p0, p1, p2, p3);
+		float* p = bezier(bezT, p0, p1, p2, p3);
 		enemyX = p[0];
 		enemyY = p[1];
+		double tan = (enemyY - previousEnemyY) / (enemyX - previousEnemyX);
+		EnemyRotationAngle = atan(tan) * 180 / PI;
+		previousEnemyX = enemyX;
+		previousEnemyY = enemyY;
+		defenderX = enemyX - 60;
+		defenderY = enemyY - 180;
 	}
 	else {
-		bezT = 0 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1));
+		p1[0] = 300 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1700));
+		p2[0] = 300 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1700));
+		p1[1] = 400 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 800));
+		p2[1] = 400 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 800));
+		/*p0[1] = 200 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 800));
+		p3[1] = 300 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 500));*/
+		//bezT = 0 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1));
+		bezT = 0;
+		if (defenderCount < defenderShowWait){
+			defenderCount++;
+		}
+		else{
+			defenderCount = 0;
+			
+		}
 	}
 	for (int i = 0; i < playerFire.size();i++){
-		if (playerFire[i].y <= 900 && playerFire[i].collided ==false ){
-			playerFire[i].y += 0.5;
+		if (playerFire[i].y <= 1100 && playerFire[i].collided ==false ){
+			playerFire[i].y += 1.7;
 		}
 		else{
 			playerFire.erase(playerFire.begin() + i);
@@ -611,17 +710,17 @@ void Anim()
 
 void main(int argc, char** argr)
 {
-	p0[0] = 25;
-	p0[1] = 759;
+	p0[0] = -400;
+	p0[1] =800;
 
-	p1[0] = 900;
-	p1[1] = 164;
+	p1[0] = 200;
+	p1[1] = 200;
 
 	p2[0] = 1417;
-	p2[1] = 1200;
+	p2[1] = 1000;
 
-	p3[0] = 1900;
-	p3[1] = 610;
+	p3[0] = 2140;
+	p3[1] = 710;
 	glutInit(&argc, argr);
 	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
 	glutInitWindowSize(2000, 1000);
@@ -639,8 +738,10 @@ void main(int argc, char** argr)
 	glutTimerFunc(0, DoubleDamagesTimer, 0);
 	glutTimerFunc(0, ExtraLivesTimer, 0);
 	//glutTimerFunc(0, DoubleDamagesEffectTimer, 0);
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	//glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	//glEnable(GL_TEXTURE_2D);
 	gluOrtho2D(0.0, 2000.0, 0.0, 1000.0);
+	loadBMP(&spacetexID, "textures/space2.bmp", true);
 	glutMainLoop();//nth gets excuted after this
 	
 }
