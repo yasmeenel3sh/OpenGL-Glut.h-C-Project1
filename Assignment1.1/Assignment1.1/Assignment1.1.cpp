@@ -40,6 +40,12 @@ void DrawDoubleDamagePowerUp(double , double );
 bool detectDoubleDamagePowerUpCollision(double, double, double, double);
 void DrawDefender(void);
 bool detectDefenderHit(double , double , double , double );
+void DrawHealthBar(void);
+void DrawUnderLyingHealthBar(void);
+void PrintEnemyHealth(void);
+void PrintPlayerScore(void);
+void PrintPlayerLives(void);
+void DefenderFire(double, double);
 //-----------------
 
 //	Global Variables
@@ -59,8 +65,8 @@ double enemyHealth = 20;
 double pastEnemyHealth = 20;
 double playerX= 1000;
 double playerY = 200;
-int playerScore = 0;
-int playerLives = 5;
+double playerScore = 0;
+double playerLives = 5;
 bool doubleDamage = false;
 bool fire = true;
 bool enemyfire = false;
@@ -85,7 +91,8 @@ double defenderY = 0;
 int rep = 1;
 GLuint spacetexID;
 double BackGroundX = 0;
-
+double HealthBarRightX = 600;
+bool defenderShowing =false;
 //-----------------
 
 
@@ -96,7 +103,7 @@ void Display(void)
 	glClear(GL_COLOR_BUFFER_BIT);
 	//BackGround1
 	glEnable(GL_TEXTURE_2D);
-	glColor3f(1, 1, 1);
+	glColor3f(0.5, 0.5, 0.5);
 	glPushMatrix();
 	glTranslated(BackGroundX, 0, 0);
 	glBindTexture(GL_TEXTURE_2D, spacetexID);
@@ -110,7 +117,7 @@ void Display(void)
 	glDisable(GL_TEXTURE_2D);
 	//BackGound2
 	glEnable(GL_TEXTURE_2D);
-	glColor3f(1, 1, 1);
+	glColor3f(0.5, 0.5, 0.5);
 	glPushMatrix();
 	glTranslated(BackGroundX, 0, 0);
 	glBindTexture(GL_TEXTURE_2D, spacetexID);
@@ -186,6 +193,7 @@ void Display(void)
 	S = new char[text.length() + 1];
 	std::strcpy(S, text.c_str());
 	print(1500, 850, S);*/
+
 	//Drawing Player
 	glPushMatrix();
 	glTranslated(playerX, playerY, 0);
@@ -221,6 +229,14 @@ void Display(void)
 			enemyFire[i].collided = true;
 		}
 	}
+	for (int i = 0; i < defenderFire.size(); i++){
+		DefenderFire(defenderFire[i].x+50, defenderFire[i].y-50);
+		bool collided = detectPlayerHit(defenderFire[i].x, defenderFire[i].y, playerX, playerY);
+		if (collided){
+			playerLives--;
+			defenderFire[i].collided = true;
+		}
+	}
 	for (int i = 0; i < extraLives.size(); i++){
 		DrawExtraLifePowerUP(extraLives[i].x, extraLives[i].y);
 		bool collided = detectExtraLivesPowerUpCollision(extraLives[i].x, extraLives[i].y, playerX, playerY);
@@ -243,21 +259,59 @@ void Display(void)
 			}
 		}
 	}
+	DrawUnderLyingHealthBar();
+	DrawHealthBar();
+	PrintEnemyHealth();
+	PrintPlayerScore();
+	PrintPlayerLives();
 	glFlush(); //must be called to draw
 }
+void PrintEnemyHealth(){
+	//Printing EnemyHealth
+	glColor3f(1, 1, 1);
+	int i = enemyHealth;
+	std::string text = "";
+	text += std::to_string(i);
+	char * S = new char[text.length() + 1];
+	std::strcpy(S, text.c_str());
+	print(980, 910, S);
+}
+void PrintPlayerScore(){
+	glColor3f(1, 1, 1);
+	int i = playerScore;
+	std::string text = "";
+	text += std::to_string(i);
+	char * S = new char[text.length() + 1];
+	std::strcpy(S, text.c_str());
+	print(1880, 910, S);
+}
+void PrintPlayerLives(){
+	glColor3f(1, 1, 1);
+	int i = playerLives;
+	std::string text = "X";
+	text += std::to_string(i);
+	char * S = new char[text.length() + 1];
+	std::strcpy(S, text.c_str());
+	print(200, 910, S);
+}
 void updateEnemyHealth(){
-	if (enemyHealth > 1 && doubleDamage ==false )
+	if (enemyHealth > 1 && doubleDamage == false){
 		enemyHealth--;
+		HealthBarRightX = HealthBarRightX - (600 / pastEnemyHealth);
+	}
 	else if (enemyHealth > 2 && doubleDamage == true){
 		enemyHealth -= 2;
+		HealthBarRightX = HealthBarRightX - (1200 / pastEnemyHealth);
 	}else{
 		enemyHealth = pastEnemyHealth * 2;
+		HealthBarRightX = 600;
 		pastEnemyHealth = enemyHealth;
 	     }
 }
 
 bool detectEnemyHit(double playerBulletX,double playerBulletY,double enemyx,double enemyy){
 	if (playerBulletX >= enemyx-50 && playerBulletX < enemyx + 80 && playerBulletY<enemyy && playerBulletY >enemyy - 130){
+		playerScore++;
 		return true;
 	}
 	return false;
@@ -306,7 +360,8 @@ void print(int x, int y, char *string)
 	//loop to display character by character
 	for (i = 0; i < len; i++)
 	{
-		glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, string[i]);
+		glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24
+			, string[i]);
 	}
 }
 void DrawExtraLifePowerUP(double x, double y){
@@ -348,6 +403,46 @@ void DrawDefender(){
 	glVertex3d(0, 0, 0);
 	glVertex3d(200, 0, 0);
 	glVertex3d(200, -60, 0);
+	glVertex3d(0, -60, 0);
+
+	glEnd();
+	glPopMatrix();
+}
+void DrawHealthBar(){
+	glPushMatrix();
+
+	glTranslated(700, 950, 0);
+
+	
+
+	glBegin(GL_QUADS);
+	glColor3f(0, 0.7, 0.8);
+	glVertex3d(0, 0, 0);
+	glColor3f(0, 0.9, 0.5);
+	glVertex3d(HealthBarRightX, 0, 0);
+	glColor3f(0, 0.7, 0.8);
+	glVertex3d(HealthBarRightX, -60, 0);
+	glColor3f(0, 0.9, 0.5);
+	glVertex3d(0, -60, 0);
+
+	glEnd();
+	glPopMatrix();
+}
+void DrawUnderLyingHealthBar(){
+	glPushMatrix();
+
+	glTranslated(700, 950, 0);
+
+
+
+	glBegin(GL_QUADS);
+	glColor3f(1, 0.2, 0.1);
+	glVertex3d(0, 0, 0);
+	//glColor3f(0.75, 0.75, 0.75);
+	glVertex3d(600, 0, 0);
+	//glColor3f(1, 0.2, 0.1);
+	glVertex3d(600, -60, 0);
+	//glColor3f(0.75, 0.75, 0.75);
 	glVertex3d(0, -60, 0);
 
 	glEnd();
@@ -582,11 +677,36 @@ void EnemyFire(double enemyFirex,double enemyFirey){
 	
 	
 }
+void DefenderFire(double defenderFirex,double defenderFirey){
+	glPushMatrix();
+	glColor3f(1, 1, 1);
+	glTranslated(defenderFirex + 45, defenderFirey , 0);
+	glBegin(GL_QUADS);
+	glVertex3d(0, 0, 0);
+	glVertex3d(20, 0, 0);
+	glVertex3d(35, -20, 0);
+	glVertex3d(-15, -20, 0);
+	glEnd();
+	glBegin(GL_QUADS);
+	glVertex3d(-15, -20, 0);
+	glVertex3d(35, -20, 0);
+	glVertex3d(20, -40, 0);
+	glVertex3d(0, -40, 0);
+	glEnd();
+	glColor3f(1, 0.8, 0);
+	drawCircle(10, -20, 10);
+	glPopMatrix();
+}
 void EnemyShootTimer(int val){
 	bullet bullet = { enemyX, enemyY, 0, false };
 	enemyFire.push_back(bullet);
 	
 	glutTimerFunc(750, EnemyShootTimer, 0);
+}
+void DefenderShootTimer(int val){
+	bullet bullet = { defenderX, defenderY, 0, false };
+	defenderFire.push_back(bullet);
+	glutTimerFunc(500, DefenderShootTimer, 0);
 }
 void PlayerShootTimer(int val){
 	fire = true;
@@ -680,6 +800,15 @@ void Anim()
 			i--;
 		}
 	}
+	for (int i = 0; i < defenderFire.size(); i++){
+		if (defenderFire[i].y > 0 && defenderFire[i].collided == false && defenderCount == defenderShowWait){
+			defenderFire[i].y -= 1;
+		}
+		else{
+			defenderFire.erase(defenderFire.begin() + i);
+			i--;
+		}
+	}
 	for (int i = 0; i < doubleDamages.size(); i++){
 		if (doubleDamages[i].y > 0 && doubleDamages[i].collided == false){
 			doubleDamages[i].y -= 1;
@@ -734,6 +863,7 @@ void main(int argc, char** argr)
 	glutMouseFunc(PlayerShooting);
 
 	glutTimerFunc(0, EnemyShootTimer, 0);
+	glutTimerFunc(0, DefenderShootTimer, 0);
 	glutTimerFunc(0, PlayerShootTimer, 0);
 	glutTimerFunc(0, DoubleDamagesTimer, 0);
 	glutTimerFunc(0, ExtraLivesTimer, 0);
