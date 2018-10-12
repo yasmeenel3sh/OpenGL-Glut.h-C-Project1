@@ -16,7 +16,7 @@ int _tmain(int argc, _TCHAR* argv[])
 #include <math.h>
 #include <iostream>
 #include <vector>
-
+#include <ctime>
 //-----------------
 //	Methods Signatures
 void Display(void);
@@ -35,16 +35,20 @@ void updateEnemyHealth(void);
 bool detectPlayerHit(double, double , double, double );
 void DrawExtraLifePowerUP(double , double );
 void DrawDoubleDamagePowerUp(double , double );
+bool detectDoubleDamagePowerUpCollision(double, double, double, double);
 //-----------------
 
 //	Global Variables
 struct bullet { double x; double y; double rotationAngle; bool collided; };
 struct powerup { double x; double y; bool collided; };
+struct doubleDamageTimer { clock_t start; };
 vector<bullet> playerFire{};
 vector<bullet> enemyFire ;
 vector<bullet> defenderFire ;
 vector<powerup> extraLives;
 vector<powerup> doubleDamages;
+vector<doubleDamageTimer> doubleDamagesTimer;
+bool detectExtraLivesPowerUpCollision(double, double, double, double );
 int sizeofplayerFire;
 double colAnim = 0;     // for fading the background color from white to black
 double enemyHealth = 20;
@@ -52,7 +56,7 @@ double pastEnemyHealth = 20;
 double playerX= 1000;
 double playerY = 200;
 int playerScore = 0;
-int playerLives = 0;
+int playerLives = 5;
 bool doubleDamage = false;
 bool fire = true;
 bool enemyfire = false;
@@ -135,6 +139,12 @@ void Display(void)
 	S = new char[text.length() + 1];
 	std::strcpy(S, text.c_str());
 	print(1500, 600, S);
+	i = playerLives;
+	text = "PlayerLives ";
+	text += std::to_string(i);
+	S = new char[text.length() + 1];
+	std::strcpy(S, text.c_str());
+	print(1500, 850, S);
 	//Drawing Player
 	glPushMatrix();
 	glTranslated(playerX, playerY, 0);
@@ -156,15 +166,31 @@ void Display(void)
 		EnemyFire(enemyFire[i].x,enemyFire[i].y);
 		bool collided = detectPlayerHit(enemyFire[i].x, enemyFire[i].y, playerX, playerY);
 		if (collided){
-            		
+			playerLives--;
 			enemyFire[i].collided = true;
 		}
 	}
 	for (int i = 0; i < extraLives.size(); i++){
 		DrawExtraLifePowerUP(extraLives[i].x, extraLives[i].y);
+		bool collided = detectExtraLivesPowerUpCollision(extraLives[i].x, extraLives[i].y, playerX, playerY);
+		if (collided){
+			playerLives++;
+			extraLives[i].collided = true;
+		}
 	}
 	for (int i = 0; i < doubleDamages.size(); i++){
-		DrawDoubleDamagePowerUp(doubleDamages[i].x,doubleDamages[i].y);
+		DrawDoubleDamagePowerUp(doubleDamages[i].x, doubleDamages[i].y);
+		bool collided = detectDoubleDamagePowerUpCollision(doubleDamages[i].x, doubleDamages[i].y, playerX, playerY);
+		if (collided){
+			doubleDamage = true;
+			doubleDamages[i].collided = true;
+			if (doubleDamagesTimer.size() == 0){
+				clock_t start = clock();
+				doubleDamageTimer t = { start };
+				doubleDamagesTimer.push_back(t);
+
+			}
+		}
 	}
 	glFlush(); //must be called to draw
 }
@@ -178,6 +204,7 @@ void updateEnemyHealth(){
 		pastEnemyHealth = enemyHealth;
 	     }
 }
+
 bool detectEnemyHit(double playerBulletX,double playerBulletY,double enemyx,double enemyy){
 	if (playerBulletX >= enemyx-50 && playerBulletX < enemyx + 100 && playerBulletY<enemyy && playerBulletY >enemyy - 140){
 		return true;
@@ -187,6 +214,19 @@ bool detectEnemyHit(double playerBulletX,double playerBulletY,double enemyx,doub
 }
 bool detectPlayerHit(double enemyBulletX, double enemyBulletY, double playerx, double playery){
 	if (enemyBulletX >= playerx - 70 && enemyBulletX < playerx + 60 && enemyBulletY<playery && enemyBulletY > playery - 110){
+		return true;
+	}
+	return false;
+}
+
+bool detectDoubleDamagePowerUpCollision(double powerupx, double powerupy, double playerx, double playery){
+	if (powerupx >= playerx - 70 && powerupx < playerx + 60 && powerupy <playery && powerupy> playery - 110){
+		return true;
+	}
+	return false;
+}
+bool detectExtraLivesPowerUpCollision(double powerupx, double powerupy, double playerx, double playery){
+	if (powerupx >= playerx - 70 && powerupx < playerx + 60 && powerupy <playery && powerupy> playery - 110){
 		return true;
 	}
 	return false;
@@ -376,14 +416,18 @@ void Fire(double firex,double firey,double rotationAngle ){
 		glVertex3d(30, -10, 0);
 		glEnd();
 		//bottom
-		/*glBegin(GL_TRIANGLES);
-		glVertex3d(0, -20, 0);
-		glVertex3d(20, -20, 0);
-		glVertex3d(10, -30, 0);
-		glEnd();*/
+		if (doubleDamage == true){
+			glBegin(GL_QUADS);
+			glVertex3d(0, -20, 0);
+			glVertex3d(20, -20, 0);
+			glVertex3d(20, -40, 0);
+			glVertex3d(0, -40, 0);
+			glEnd();
+		}
 		glPopMatrix();
 	//}
 }
+
 void drawCircle(int x, int y, float r) {
 
 	glTranslatef(x, y, 0);
@@ -478,8 +522,17 @@ void DoubleDamagesTimer(int val){
 	double x = 100 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1900));
 	powerup powerup = { x, 1100,false };
 	doubleDamages.push_back(powerup);
-	glutTimerFunc(5000, DoubleDamagesTimer, 0);
+	glutTimerFunc(7000, DoubleDamagesTimer, 0);
 }
+//void DoubleDamagesEffectTimer(int val){
+//	    
+//		doubleDamage = val;
+//		glutTimerFunc(1000, DoubleDamagesEffectTimer, 0);
+//	
+//
+//}
+
+
 void  ExtraLivesTimer(int val){
 	double x = 100 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1900));
 	powerup powerup = { x, 1100,false };
@@ -546,6 +599,13 @@ void Anim()
 			i--;
 		}
 	}
+	if (doubleDamagesTimer.size() > 0){
+		double duration = (clock() - doubleDamagesTimer[0].start) / (double)CLOCKS_PER_SEC;
+		if (duration >= 5){
+			doubleDamage = false;
+			doubleDamagesTimer.pop_back();
+		}
+	}
 	glutPostRedisplay();
 }
 
@@ -578,6 +638,7 @@ void main(int argc, char** argr)
 	glutTimerFunc(0, PlayerShootTimer, 0);
 	glutTimerFunc(0, DoubleDamagesTimer, 0);
 	glutTimerFunc(0, ExtraLivesTimer, 0);
+	//glutTimerFunc(0, DoubleDamagesEffectTimer, 0);
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	gluOrtho2D(0.0, 2000.0, 0.0, 1000.0);
 	glutMainLoop();//nth gets excuted after this
