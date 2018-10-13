@@ -520,9 +520,9 @@ void DrawHealthBar(){
 	glColor3f(0, 0.9, 0.5);
 	glVertex3d(HealthBarRightX, 0, 0);
 	glColor3f(0, 0.7, 0.8);
-	glVertex3d(HealthBarRightX, -60, 0);
+	glVertex3d(HealthBarRightX, -50, 0);
 	glColor3f(0, 0.9, 0.5);
-	glVertex3d(0, -60, 0);
+	glVertex3d(0, -50, 0);
 
 	glEnd();
 	glPopMatrix();
@@ -541,9 +541,9 @@ void DrawUnderLyingHealthBar(){
 	//glColor3f(0.75, 0.75, 0.75);
 	glVertex3d(600, 0, 0);
 	//glColor3f(1, 0.2, 0.1);
-	glVertex3d(600, -60, 0);
+	glVertex3d(600, -50, 0);
 	//glColor3f(0.75, 0.75, 0.75);
-	glVertex3d(0, -60, 0);
+	glVertex3d(0, -50, 0);
 
 	glEnd();
 	glPopMatrix();
@@ -658,18 +658,31 @@ void key(unsigned char k, int x, int y)//keyboard function, takes 3 parameters
 }
 void spe(int k, int x, int y)
 {
-	if (k == GLUT_KEY_RIGHT && playerX<1990)
+	if (k == GLUT_KEY_RIGHT && playerX < 1990){
 		playerX += 30;
-	if (k == GLUT_KEY_LEFT && playerX>50)
-		playerX-= 30;
-
+		if (playerX > 50 && playerX < 1400)
+			playerRotationAngle = -5;
+		else if (playerX > 1400 && playerX < 1990)
+			playerRotationAngle = -8;
+		else
+			playerRotationAngle = 0;
+	}
+	if (k == GLUT_KEY_LEFT && playerX > 50){
+		playerX -= 30;
+		if (playerX < 1990 && playerX>600)
+			playerRotationAngle = 5;
+		else if (playerX < 600 && playerX >50)
+			playerRotationAngle = 8;
+		else
+			playerRotationAngle = 0;
+	}
 	
-	if (playerX > 1200)
+	/*if (playerX > 1200)
 		playerRotationAngle = -5;
 	else if (playerX < 800)
 		playerRotationAngle = 5;
 	else
-		playerRotationAngle = 0;
+		playerRotationAngle = 0;*/
 	glutPostRedisplay();
 }
 void Fire(double firex,double firey,double rotationAngle ){
@@ -871,7 +884,8 @@ void DoubleDamagesTimer(int val){
 	double x = 100 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1900));
 	powerup powerup = { x, 1100,false };
 	doubleDamages.push_back(powerup);
-	glutTimerFunc(2000, DoubleDamagesTimer, 0);
+	double timer = 1000 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 2000));
+	glutTimerFunc(timer, DoubleDamagesTimer, 0);
 }
 //void DoubleDamagesEffectTimer(int val){
 //	    
@@ -886,7 +900,8 @@ void  ExtraLivesTimer(int val){
 	double x = 100 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 1900));
 	powerup powerup = { x, 1100,false };
 	extraLives.push_back(powerup);
-	glutTimerFunc(5000, ExtraLivesTimer, 0);
+	double timer = 1000 + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 5000));
+	glutTimerFunc(timer, ExtraLivesTimer, 0);
 }
 float* bezier(float t, float* p0, float* p1, float* p2, float* p3)
 {
