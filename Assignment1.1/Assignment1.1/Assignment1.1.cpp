@@ -67,7 +67,7 @@ double pastEnemyHealth = 20;
 double playerX= 1000;
 double playerY = 200;
 double playerScore = 0;
-double playerLives = 5;
+double playerLives = 10;
 bool doubleDamage = false;
 bool fire = true;
 bool enemyfire = false;
@@ -127,7 +127,7 @@ void Display(void)
 	glClear(GL_COLOR_BUFFER_BIT);
 	//BackGround1
 	glEnable(GL_TEXTURE_2D);
-	glColor3f(0.5, 0.5, 0.5);
+	glColor3f(0.75, 0.75, 0.75);
 	glPushMatrix();
 	glTranslated(0, BackGroundY, 0);
 	glBindTexture(GL_TEXTURE_2D, spacetexID);
@@ -141,7 +141,7 @@ void Display(void)
 	glDisable(GL_TEXTURE_2D);
 	//BackGound2
 	glEnable(GL_TEXTURE_2D);
-	glColor3f(0.55, 0.55, 0.55);
+	glColor3f(0.75, 0.75, 0.75);
 	glPushMatrix();
 	glTranslated(0, BackGroundY, 0);
 	glBindTexture(GL_TEXTURE_2D, spacetexID);
